@@ -1,0 +1,67 @@
+# Sobe aplicação e banco com um comando:  docker compose up --build
+# Todas as variáveis têm default embutido, então funciona num clone limpo,
+# sem arquivo .env.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-seguradoras}
+      POSTGRES_USER: ${POSTGRES_USER:-seguradoras}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-seguradoras}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Sem `ports`: o `web` alcança o banco por `db:5432` na rede interna.
+    # Publicar no host só criaria conflito com um PostgreSQL já instalado.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-seguradoras} -d ${POSTGRES_DB:-seguradoras}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+    depends_on:
+      db:
+        # Espera o banco aceitar conexões antes de tentar migrar.
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      POSTGRES_DB: ${POSTGRES_DB:-seguradoras}
+      POSTGRES_USER: ${POSTGRES_USER:-seguradoras}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-seguradoras}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-inseguro-nao-usar-em-producao}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # As settings leem estas, então precisam ser repassadas: sem a linha
+      # correspondente aqui, definir a variável no host não teria efeito algum
+      # dentro do container.
+      PAGE_SIZE: ${PAGE_SIZE:-20}
+      CACHE_TTL: ${CACHE_TTL:-60}
+      BRASILAPI_BASE_URL: ${BRASILAPI_BASE_URL:-https://brasilapi.com.br/api/cnpj/v1}
+      BRASILAPI_TIMEOUT_CONNECT: ${BRASILAPI_TIMEOUT_CONNECT:-3.05}
+      BRASILAPI_TIMEOUT_READ: ${BRASILAPI_TIMEOUT_READ:-10}
+      BRASILAPI_MAX_RETRIES: ${BRASILAPI_MAX_RETRIES:-2}
+      ENRIQUECIMENTO_ASSINCRONO: ${ENRIQUECIMENTO_ASSINCRONO:-1}
+      ENRIQUECIMENTO_AO_IMPORTAR: ${ENRIQUECIMENTO_AO_IMPORTAR:-1}
+    ports:
+      - "${PORTA_APP:-8000}:8000"
+    # Boot visível aqui, em vez de escondido num entrypoint.sh.
+    # Bloco literal `|` e não o dobrado `>`: o `>` preserva quebras de linha
+    # quando as linhas seguintes são mais indentadas, e o `sh -c` receberia
+    # comandos separados. `-e` aborta se a migração falhar; `exec` entrega o
+    # PID 1 ao gunicorn, para ele receber os sinais de parada do Docker.
+    command:
+      - sh
+      - -ec
+      - |
+        python manage.py migrate --noinput
+        exec gunicorn config.wsgi:application \
+          --bind 0.0.0.0:8000 \
+          --workers 1 --threads 8 \
+          --access-logfile -
+
+volumes:
+  pgdata:

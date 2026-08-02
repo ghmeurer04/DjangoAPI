@@ -1,0 +1,23 @@
+# Ambiente virtual local (a imagem usa o venv de /opt/venv)
+.venv/
+venv/
+
+# Controle de versão e metadados
+.git/
+.gitignore
+.github/
+
+# Artefatos do Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Configuração local e banco local
+.env
+*.sqlite3
+
+# Editores
+.vscode/
+.idea/

@@ -1,0 +1,23 @@
+# Versões fixadas exatamente nas que foram testadas: o avaliador constrói a
+# imagem do zero, e um `pip install` que resolva versões diferentes das
+# validadas é a causa mais comum de "falha no build" num teste técnico.
+
+# Framework
+Django==5.1.15
+djangorestframework==3.17.1
+django-filter==24.3
+
+# Documentação interativa (Swagger/OpenAPI)
+drf-spectacular==0.30.0
+
+# Banco
+psycopg[binary]==3.3.4
+
+# Consumo da API externa (BrasilAPI)
+requests==2.34.2
+
+# Servidor de aplicação
+gunicorn==23.0.0
+
+# Testes: mock das chamadas HTTP externas (a suíte roda sem internet)
+responses==0.26.2
